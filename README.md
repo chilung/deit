@@ -68,8 +68,7 @@ Then, install PyTorch 1.7.0+ and torchvision 0.8.1+ and [pytorch-image-models 0.
 conda install -c pytorch pytorch torchvision
 pip install timm==0.3.2
 ```
-(BUG FIX): cannot import name 'container_abcs' from 'torch._six'
-in installed timm/models/layers/helpers.py, comment the line of "from torch._six import container_abcs" and add a new line "import collections.abc as container_abcs"
+FIX the bug of "cannot import name 'container_abcs' from 'torch._six'", in installed timm/models/layers/helpers.py, comment out the line of "from torch._six import container_abcs" and add a new line "import collections.abc as container_abcs".
 
 ## Data preparation
 
