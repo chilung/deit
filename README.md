@@ -72,7 +72,8 @@ conda install -c pytorch pytorch torchvision
     wget https://files.pythonhosted.org/packages/ef/df/dd6f109d3081b72b6a2ae01afea5cd80e556a63befe7d14a78911220851c/timm-0.3.2.tar.gz
     tar zxvf timm-0.3.2.tar.gz
     mv timm-0.3.2 timm
-    cd timm & pip install -e .
+    cd timm
+    pip install -e .
 <fix cannot import name 'container_abcs' from 'torch._six' bug>
     edit ./timm/models/layers/helpers.py"
     # from torch._six import container_abcs
