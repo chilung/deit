@@ -30,6 +30,27 @@ from .layers import DropPath, to_2tuple, trunc_normal_
 from .resnet import resnet26d, resnet50d
 from .registry import register_model
 
+stat = {}
+attn_list = None
+attn_similarity = 0.0
+
+mask_12_step1 = [1, 1, 1, 1,
+                 1, 1, 1, 1,
+                 1, 1, 1, 1,]
+mask_12_step4 = [1, 0, 0, 0,
+                 1, 0, 0, 0,
+                 1, 0, 0, 0,]
+mask_12_f_step4 = [0, 0, 0, 0,
+                 0, 0, 0, 0,
+                 1, 1, 1, 1,]
+mask_16_step1 = [1, 1, 1, 1,
+                 1, 1, 1, 1,
+                 1, 1, 1, 1,
+                 1, 1, 1, 1,]
+mask_16_step4 = [1, 0, 0, 0,
+                 1, 0, 0, 0,
+                 1, 0, 0, 0,
+                 1, 0, 0, 0,]
 
 def _cfg(url='', **kwargs):
     return {
@@ -43,36 +64,10 @@ def _cfg(url='', **kwargs):
 
 
 default_cfgs = {
-    # patch models
-    'vit_small_patch16_224': _cfg(
-        url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-weights/vit_small_p16_224-15ec54c9.pth',
-    ),
-    'vit_base_patch16_224': _cfg(
+    'divervit_base_patch16_224': _cfg(
         url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth',
         mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
     ),
-    'vit_base_patch16_384': _cfg(
-        url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_384-83fb41ba.pth',
-        input_size=(3, 384, 384), mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), crop_pct=1.0),
-    'vit_base_patch32_384': _cfg(
-        url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p32_384-830016f5.pth',
-        input_size=(3, 384, 384), mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), crop_pct=1.0),
-    'vit_large_patch16_224': _cfg(
-        url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_large_p16_224-4ee7a4dc.pth',
-        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
-    'vit_large_patch16_384': _cfg(
-        url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_large_p16_384-b3be5167.pth',
-        input_size=(3, 384, 384), mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), crop_pct=1.0),
-    'vit_large_patch32_384': _cfg(
-        url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_large_p32_384-9b920ba8.pth',
-        input_size=(3, 384, 384), mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), crop_pct=1.0),
-    'vit_huge_patch16_224': _cfg(),
-    'vit_huge_patch32_384': _cfg(input_size=(3, 384, 384)),
-    # hybrid models
-    'vit_small_resnet26d_224': _cfg(),
-    'vit_small_resnet50d_s3_224': _cfg(),
-    'vit_base_resnet26d_224': _cfg(),
-    'vit_base_resnet50d_224': _cfg(),
 }
 
 
@@ -95,7 +90,7 @@ class Mlp(nn.Module):
         return x
 
 
-class Attention(nn.Module):
+class DiverAttention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
         super().__init__()
         self.num_heads = num_heads
@@ -109,12 +104,21 @@ class Attention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
     def forward(self, x):
+        global attn_list
+        
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
+
+        # keep the attn in the attention map list
+        if attn_list == None:
+            attn_list = torch.unsqueeze(attn.clone().flatten(2), 0)
+        else:
+            attn_list = torch.cat((attn_list, torch.unsqueeze(attn.flatten(2), 0)), 0)
+        
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
@@ -129,7 +133,7 @@ class Block(nn.Module):
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm):
         super().__init__()
         self.norm1 = norm_layer(dim)
-        self.attn = Attention(
+        self.attn = DiverAttention(
             dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -201,13 +205,20 @@ class HybridEmbed(nn.Module):
         return x
 
 
-class VisionTransformer(nn.Module):
+class DiverVisionTransformer(nn.Module):
     """ Vision Transformer with support for patch or hybrid CNN input stage
     """
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm):
+                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm,
+                 layer_mask=[], cal_type='full conn'):
         super().__init__()
+
+        # old_i for calculate similarity only
+        self.old_i = -1
+        self.layer_mask = layer_mask
+        self.cal_type = cal_type
+
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
 
@@ -262,7 +273,58 @@ class VisionTransformer(nn.Module):
         self.num_classes = num_classes
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
+    def single_out(self, i, j):
+        global old_i
+        if self.old_i != i:
+            self.old_i = i
+            return [i, j]
+        else:
+            return
+           
+    def cal_attn_similaity(self, attn_list, layer_mask, cal_type='full conn'):
+        # print('layer mask: {}, attn index: {}, cal_type: {}'.format(len(layer_mask), attn_list['index'], cal_type))
+        # print('shape of attn list: {}'.format(attn_list.shape))
+        layer_depth, B, H, _ = attn_list.shape
+        assert len(layer_mask) == layer_depth 
+        assert cal_type in ['full conn', 'adjacent']
+
+        if attn_list.is_cuda:
+            print('attn_list in CUDA')
+        else:
+            print('attn_list in CPU')
+
+        cal_list = [[i, j] for i in range(layer_depth-1) if layer_mask[i]==1
+                    for j in range(i+1, layer_depth) if layer_mask[j]==1]
+        if cal_type == 'adjacent':
+            cal_list = [self.single_out(i, j) for i, j in cal_list]
+            cal_list = [item for item in cal_list if item!=None]
+        # print(cal_list)
+
+        cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+        # cos_sim = torch.tensor([cos(attn_tensor[layer_i][batch_idx][head_i],
+        #                             attn_tensor[layer_j][batch_idx][head_j])
+        #                      for layer_i, layer_j in cal_list
+        #                      for batch_idx in range(B)
+        #                      for head_i in range(H)
+        #                      for head_j in range(H)]).cuda()
+        cos_sim = torch.tensor([[[[cos(attn_list[layer_i][batch_idx][head_i], attn_list[layer_j][batch_idx][head_j])
+                             for head_j in range(H)]
+                             for head_i in range(H)]
+                             for batch_idx in range(B)]
+                             for layer_i, layer_j in cal_list]).cuda()
+        # print(cos_sim)
+        cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
+        print(cos_sim, cos_sim_max_indices)
+        if cos_sim.is_cuda:
+            print('cos_sim in CUDA')
+        else:
+            print('cos_sim in CPU')
+        cos_sim = torch.mean(cos_sim)
+        # print('cos_sim mean: {}'.format(cos_sim))
+        return cos_sim
+    
     def forward_features(self, x):
+        global attn_list, attn_similarity
         B = x.shape[0]
         x = self.patch_embed(x)
 
@@ -271,8 +333,15 @@ class VisionTransformer(nn.Module):
         x = x + self.pos_embed
         x = self.pos_drop(x)
 
+        # reset attention map list for each input x
+        attn_list = None
+        
         for blk in self.blocks:
             x = blk(x)
+
+            # check attention map list
+        # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
+        attn_similarity = self.cal_attn_similaity(attn_list=attn_list, layer_mask=self.layer_mask, cal_type=self.cal_type)
 
         x = self.norm(x)
         return x[:, 0]
@@ -294,135 +363,15 @@ def _conv_filter(state_dict, patch_size=16):
 
 
 @register_model
-def vit_small_patch16_224(pretrained=False, **kwargs):
-    if pretrained:
-        # NOTE my scale was wrong for original weights, leaving this here until I have better ones for this model
-        kwargs.setdefault('qk_scale', 768 ** -0.5)
-    model = VisionTransformer(patch_size=16, embed_dim=768, depth=8, num_heads=8, mlp_ratio=3., **kwargs)
-    model.default_cfg = default_cfgs['vit_small_patch16_224']
-    if pretrained:
-        load_pretrained(
-            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
-    return model
-
-
-@register_model
-def vit_base_patch16_224(pretrained=False, **kwargs):
-    model = VisionTransformer(
+def divervit_base_patch16_224(pretrained=False, **kwargs):
+    print('===============================CHILUNG divervit_base_patch16_224===============================')
+    print('===============================pretrained: {}==============================='.format(pretrained))
+    model = DiverVisionTransformer(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = default_cfgs['vit_base_patch16_224']
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+    model.default_cfg = default_cfgs['divervit_base_patch16_224']
     if pretrained:
+        print('===============================CHILUNG load_pretrained===============================')
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
-    return model
-
-
-@register_model
-def vit_base_patch16_384(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384, patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = default_cfgs['vit_base_patch16_384']
-    if pretrained:
-        load_pretrained(model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3))
-    return model
-
-
-@register_model
-def vit_base_patch32_384(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384, patch_size=32, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = default_cfgs['vit_base_patch32_384']
-    if pretrained:
-        load_pretrained(model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3))
-    return model
-
-
-@register_model
-def vit_large_patch16_224(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = default_cfgs['vit_large_patch16_224']
-    if pretrained:
-        load_pretrained(model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3))
-    return model
-
-
-@register_model
-def vit_large_patch16_384(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384, patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4,  qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = default_cfgs['vit_large_patch16_384']
-    if pretrained:
-        load_pretrained(model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3))
-    return model
-
-
-@register_model
-def vit_large_patch32_384(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384, patch_size=32, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4,  qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = default_cfgs['vit_large_patch32_384']
-    if pretrained:
-        load_pretrained(model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3))
-    return model
-
-
-@register_model
-def vit_huge_patch16_224(pretrained=False, **kwargs):
-    model = VisionTransformer(patch_size=16, embed_dim=1280, depth=32, num_heads=16, mlp_ratio=4, **kwargs)
-    model.default_cfg = default_cfgs['vit_huge_patch16_224']
-    return model
-
-
-@register_model
-def vit_huge_patch32_384(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384, patch_size=32, embed_dim=1280, depth=32, num_heads=16, mlp_ratio=4, **kwargs)
-    model.default_cfg = default_cfgs['vit_huge_patch32_384']
-    return model
-
-
-@register_model
-def vit_small_resnet26d_224(pretrained=False, **kwargs):
-    pretrained_backbone = kwargs.get('pretrained_backbone', True)  # default to True for now, for testing
-    backbone = resnet26d(pretrained=pretrained_backbone, features_only=True, out_indices=[4])
-    model = VisionTransformer(
-        img_size=224, embed_dim=768, depth=8, num_heads=8, mlp_ratio=3, hybrid_backbone=backbone, **kwargs)
-    model.default_cfg = default_cfgs['vit_small_resnet26d_224']
-    return model
-
-
-@register_model
-def vit_small_resnet50d_s3_224(pretrained=False, **kwargs):
-    pretrained_backbone = kwargs.get('pretrained_backbone', True)  # default to True for now, for testing
-    backbone = resnet50d(pretrained=pretrained_backbone, features_only=True, out_indices=[3])
-    model = VisionTransformer(
-        img_size=224, embed_dim=768, depth=8, num_heads=8, mlp_ratio=3, hybrid_backbone=backbone, **kwargs)
-    model.default_cfg = default_cfgs['vit_small_resnet50d_s3_224']
-    return model
-
-
-@register_model
-def vit_base_resnet26d_224(pretrained=False, **kwargs):
-    pretrained_backbone = kwargs.get('pretrained_backbone', True)  # default to True for now, for testing
-    backbone = resnet26d(pretrained=pretrained_backbone, features_only=True, out_indices=[4])
-    model = VisionTransformer(
-        img_size=224, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, hybrid_backbone=backbone, **kwargs)
-    model.default_cfg = default_cfgs['vit_base_resnet26d_224']
-    return model
-
-
-@register_model
-def vit_base_resnet50d_224(pretrained=False, **kwargs):
-    pretrained_backbone = kwargs.get('pretrained_backbone', True)  # default to True for now, for testing
-    backbone = resnet50d(pretrained=pretrained_backbone, features_only=True, out_indices=[4])
-    model = VisionTransformer(
-        img_size=224, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, hybrid_backbone=backbone, **kwargs)
-    model.default_cfg = default_cfgs['vit_base_resnet50d_224']
     return model

@@ -2,6 +2,7 @@ from .cspnet import *
 from .densenet import *
 from .dla import *
 from .dpn import *
+from .divervit import *
 from .efficientnet import *
 from .gluon_resnet import *
 from .gluon_xception import *
