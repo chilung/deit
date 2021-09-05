@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 from functools import partial
 
-from tt_timm.models.vision_transformer import VisionTransformer, _cfg
-from tt_timm.models.registry import register_model
-from tt_timm.models.layers import trunc_normal_
+from timm.models.vision_transformer import VisionTransformer, _cfg
+from timm.models.registry import register_model
+from timm.models.layers import trunc_normal_
 
 
 __all__ = [
