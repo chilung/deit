@@ -306,11 +306,8 @@ class DiverVisionTransformer(nn.Module):
                              for layer_i, layer_j in cal_list]).cuda()
         # print(cos_sim)
         cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
-        print(cos_sim, cos_sim_max_indices)
-        if cos_sim.is_cuda:
-            print('cos_sim in CUDA')
-        else:
-            print('cos_sim in CPU')
+        # print(cos_sim, cos_sim_max_indices)
+        print('cos_sim in {}'.format('CUDA' if cos_sim.is_cuda else 'CPU'))
         cos_sim = torch.mean(cos_sim)
         # print('cos_sim mean: {}'.format(cos_sim))
         return cos_sim
