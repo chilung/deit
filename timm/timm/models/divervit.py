@@ -105,24 +105,15 @@ class DiverAttention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
     def forward(self, x):
-        global attn_list
-        
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-
-        # keep the attn in the attention map list
-        if attn_list == None:
-            attn_list = torch.unsqueeze(attn.clone().flatten(2), 0)
-        else:
-            attn_list = torch.cat((attn_list, torch.unsqueeze(attn.flatten(2), 0)), 0)
-        
+        attn = attn.softmax(dim=-1)        
         attn = self.attn_drop(attn)
 
-        if self.attn_map.shape[0] == 0:
+        if self.attn_map.shape[0] != B:
             self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads)
         self.attn_map = attn
         
@@ -286,18 +277,19 @@ class DiverVisionTransformer(nn.Module):
         else:
             return
            
-    def cal_attn_similaity(self, attn_list, layer_mask, cal_type='full conn'):
+    def cal_attn_similaity(self, layer_mask, cal_type='full conn'):
         # print('layer mask: {}, attn index: {}, cal_type: {}'.format(len(layer_mask), attn_list['index'], cal_type))
         # print('shape of attn list: {}'.format(attn_list.shape))
-        layer_depth, B, H, _ = attn_list.shape
+        attn_map_buf = [buf for _, buf in self.named_buffers()]
+
+        layer_depth = attn_map_buf.size()
+        B, H, _ = attn_map_buf[0].shape
+        
         assert len(layer_mask) == layer_depth 
         assert cal_type in ['full conn', 'adjacent']
 
-        if attn_list.is_cuda:
-            print('attn_list in CUDA')
-        else:
-            print('attn_list in CPU')
-
+        print('attn_map_buf in {}'.format('CUDA' if attn_map_buf[0].is_cuda else 'CPU'))
+        
         cal_list = [[i, j] for i in range(layer_depth-1) if layer_mask[i]==1
                     for j in range(i+1, layer_depth) if layer_mask[j]==1]
         if cal_type == 'adjacent':
@@ -305,20 +297,8 @@ class DiverVisionTransformer(nn.Module):
             cal_list = [item for item in cal_list if item!=None]
         # print(cal_list)
 
-        attn_map_buf = [buf for _, buf in self.named_buffers()]
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-        # cos_sim = torch.tensor([cos(attn_tensor[layer_i][batch_idx][head_i],
-        #                             attn_tensor[layer_j][batch_idx][head_j])
-        #                      for layer_i, layer_j in cal_list
-        #                      for batch_idx in range(B)
-        #                      for head_i in range(H)
-        #                      for head_j in range(H)]).cuda()
-        cos_sim = torch.tensor([[[[cos(attn_list[layer_i][batch_idx][head_i], attn_list[layer_j][batch_idx][head_j])
-                             for head_j in range(H)]
-                             for head_i in range(H)]
-                             for batch_idx in range(B)]
-                             for layer_i, layer_j in cal_list]).cuda()
         cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i].flatten(), attn_map_buf[layer_j][batch_idx][head_j].flatten())
                              for head_j in range(H)]
                              for head_i in range(H)]
@@ -336,7 +316,7 @@ class DiverVisionTransformer(nn.Module):
         return cos_sim
     
     def forward_features(self, x):
-        global attn_list, attn_similarity
+        global attn_similarity
         B = x.shape[0]
         x = self.patch_embed(x)
 
@@ -344,16 +324,12 @@ class DiverVisionTransformer(nn.Module):
         x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed
         x = self.pos_drop(x)
-
-        # reset attention map list for each input x
-        attn_list = None
         
         for blk in self.blocks:
             x = blk(x)
 
-            # check attention map list
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
-        attn_similarity = self.cal_attn_similaity(attn_list=attn_list, layer_mask=self.layer_mask, cal_type=self.cal_type)
+        attn_similarity = self.cal_attn_similaity(layer_mask=self.layer_mask, cal_type=self.cal_type)
 
         x = self.norm(x)
         return x[:, 0]
