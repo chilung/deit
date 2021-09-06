@@ -319,7 +319,7 @@ class DiverVisionTransformer(nn.Module):
                              for head_i in range(H)]
                              for batch_idx in range(B)]
                              for layer_i, layer_j in cal_list]).cuda()
-        cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i], attn_map_buf[layer_j][batch_idx][head_j])
+        cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i].flatten(), attn_map_buf[layer_j][batch_idx][head_j].flatten())
                              for head_j in range(H)]
                              for head_i in range(H)]
                              for batch_idx in range(B)]
