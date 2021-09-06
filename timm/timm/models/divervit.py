@@ -114,7 +114,7 @@ class DiverAttention(nn.Module):
         attn = self.attn_drop(attn)
 
         if self.attn_map.shape[0] != B:
-            self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads)
+            self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads).cuda()
         self.attn_map = attn
         
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
