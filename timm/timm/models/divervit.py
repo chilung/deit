@@ -370,6 +370,8 @@ def divervit_base_patch16_224(pretrained=False, **kwargs):
     model = DiverVisionTransformer(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+    for buf in named_buffers(model):
+        print(buf)
     model.default_cfg = default_cfgs['divervit_base_patch16_224']
     if pretrained:
         print('===============================CHILUNG load_pretrained===============================')
