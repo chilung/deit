@@ -305,6 +305,8 @@ class DiverVisionTransformer(nn.Module):
             cal_list = [item for item in cal_list if item!=None]
         # print(cal_list)
 
+        print([name for name, buf in self.named_buffers()])
+        
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
         # cos_sim = torch.tensor([cos(attn_tensor[layer_i][batch_idx][head_i],
         #                             attn_tensor[layer_j][batch_idx][head_j])
