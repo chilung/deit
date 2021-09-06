@@ -282,7 +282,7 @@ class DiverVisionTransformer(nn.Module):
         # print('shape of attn list: {}'.format(attn_list.shape))
         attn_map_buf = [buf for _, buf in self.named_buffers()]
 
-        layer_depth = attn_map_buf.size()
+        layer_depth = len(attn_map_buf)
         B, H, _ = attn_map_buf[0].shape
         
         assert len(layer_mask) == layer_depth 
