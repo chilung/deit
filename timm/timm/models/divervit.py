@@ -305,7 +305,7 @@ class DiverVisionTransformer(nn.Module):
             cal_list = [item for item in cal_list if item!=None]
         # print(cal_list)
 
-        print([name for name, buf in self.named_buffers()])
+        attn_map_buf = [buf for _, buf in self.named_buffers()]
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
         # cos_sim = torch.tensor([cos(attn_tensor[layer_i][batch_idx][head_i],
@@ -315,6 +315,11 @@ class DiverVisionTransformer(nn.Module):
         #                      for head_i in range(H)
         #                      for head_j in range(H)]).cuda()
         cos_sim = torch.tensor([[[[cos(attn_list[layer_i][batch_idx][head_i], attn_list[layer_j][batch_idx][head_j])
+                             for head_j in range(H)]
+                             for head_i in range(H)]
+                             for batch_idx in range(B)]
+                             for layer_i, layer_j in cal_list]).cuda()
+        cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i], attn_map_buf[layer_j][batch_idx][head_j])
                              for head_j in range(H)]
                              for head_i in range(H)]
                              for batch_idx in range(B)]
