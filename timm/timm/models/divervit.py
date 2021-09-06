@@ -116,6 +116,7 @@ class DiverAttention(nn.Module):
         if self.attn_map.shape[0] != B:
             self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads).cuda()
         self.attn_map = attn
+        print('attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
