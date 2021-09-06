@@ -114,6 +114,9 @@ class DiverAttention(nn.Module):
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
 
+        if self.attn_map.shape[0] == 0:
+            self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads)
+        
         # keep the attn in the attention map list
         if attn_list == None:
             attn_list = torch.unsqueeze(attn.clone().flatten(2), 0)
