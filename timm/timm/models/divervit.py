@@ -119,7 +119,7 @@ class DiverAttention(nn.Module):
         if self.attn_map.shape[0] != B:
             self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads).cuda()
         # print('3 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
-        # self.attn_map = attn
+        self.attn_map = attn
         
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
@@ -329,9 +329,8 @@ class DiverVisionTransformer(nn.Module):
             x = blk(x)
 
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
-        # attn_similarity = self.cal_attn_similaity(layer_mask=self.layer_mask, cal_type=self.cal_type)
-        attn_similarity = 0
-
+        attn_similarity = self.cal_attn_similaity(layer_mask=self.layer_mask, cal_type=self.cal_type)
+        
         x = self.norm(x)
         return x[:, 0]
 
