@@ -309,7 +309,7 @@ class DiverVisionTransformer(nn.Module):
         #                      for head_i in range(H)]
         #                      for batch_idx in range(B)]
         #                      for layer_i, layer_j in cal_list]).cuda()
-        cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i].flatten(-2), attn_map_buf[layer_j].flatten(-2))
+        cos_sim = torch.tensor([cos(attn_map_buf[layer_i].flatten(-2), attn_map_buf[layer_j].flatten(-2))
                              for layer_i, layer_j in cal_list]).cuda()
         # print(cos_sim)
         cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
