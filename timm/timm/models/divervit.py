@@ -304,10 +304,12 @@ class DiverVisionTransformer(nn.Module):
         # print(cal_list)
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-        cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i].flatten(), attn_map_buf[layer_j][batch_idx][head_j].flatten())
-                             for head_j in range(H)]
-                             for head_i in range(H)]
-                             for batch_idx in range(B)]
+        # cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i].flatten(), attn_map_buf[layer_j][batch_idx][head_j].flatten())
+        #                      for head_j in range(H)]
+        #                      for head_i in range(H)]
+        #                      for batch_idx in range(B)]
+        #                      for layer_i, layer_j in cal_list]).cuda()
+        cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i].flatten(-2), attn_map_buf[layer_j].flatten(-2))
                              for layer_i, layer_j in cal_list]).cuda()
         # print(cos_sim)
         cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
