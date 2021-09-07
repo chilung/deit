@@ -77,7 +77,8 @@ class ModelEma:
                 model_v = msd[k].detach()
                 if self.device:
                     model_v = model_v.to(device=self.device)
-                ema_v.copy_(ema_v * self.decay + (1. - self.decay) * model_v)
+                if ema_v.shape[0] != 0:
+                    ema_v.copy_(ema_v * self.decay + (1. - self.decay) * model_v)
 
 
 class ModelEmaV2(nn.Module):
