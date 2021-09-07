@@ -299,7 +299,6 @@ class DiverVisionTransformer(nn.Module):
             cal_list = [self.single_out(i, j) for i, j in cal_list]
             cal_list = [item for item in cal_list if item!=None]
         # print(cal_list)
-
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
         cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i].flatten(), attn_map_buf[layer_j][batch_idx][head_j].flatten())
@@ -312,7 +311,7 @@ class DiverVisionTransformer(nn.Module):
         # print(cos_sim, cos_sim_max_indices)
         print('cos_sim in {}'.format('CUDA' if cos_sim.is_cuda else 'CPU'))
         cos_sim = torch.mean(cos_sim)
-        # print('cos_sim mean: {}'.format(cos_sim))
+        print('cos_sim mean: {}'.format(cos_sim))
         return cos_sim
     
     def forward_features(self, x):
