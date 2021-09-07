@@ -284,7 +284,7 @@ class DiverVisionTransformer(nn.Module):
     def cal_attn_similaity(self, layer_mask, cal_type='full conn'):
         # print('layer mask: {}, attn index: {}, cal_type: {}'.format(len(layer_mask), attn_list['index'], cal_type))
         # print('shape of attn list: {}'.format(attn_list.shape))
-        attn_map_name) = [buf for name, _ in self.named_buffers()]
+        attn_map_name = [buf for name, _ in self.named_buffers()]
         print(attn_map_name)
         attn_map_buf = [buf for _, buf in self.named_buffers()]
 
