@@ -95,7 +95,7 @@ class DiverAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.register_buffer('attn_map', torch.zeros([0]))
+        # self.register_buffer('attn_map', torch.zeros([0]))
         print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         
         # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
@@ -114,11 +114,11 @@ class DiverAttention(nn.Module):
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)        
         attn = self.attn_drop(attn)
-        print('2 attn in {}'.format('CUDA' if attn.is_cuda else 'CPU'))
+        #print('2 attn in {}'.format('CUDA' if attn.is_cuda else 'CPU'))
 
-        if self.attn_map.shape[0] != B:
-            self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads).cuda()
-        print('3 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
+        #if self.attn_map.shape[0] != B:
+        #    self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads).cuda()
+        #print('3 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         # self.attn_map = attn
         
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
