@@ -71,6 +71,7 @@ class ModelEma:
         with torch.no_grad():
             msd = model.state_dict()
             for k, ema_v in self.ema.state_dict().items():
+                print(k, ema_v)
                 if needs_module:
                     k = 'module.' + k
                 model_v = msd[k].detach()
