@@ -95,8 +95,8 @@ class DiverAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.register_buffer('attn_map', torch.zeros([0]).cuda())
-        print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
+        # self.register_buffer('attn_map', torch.zeros([0]).cuda())
+        # print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
         self.scale = qk_scale or head_dim ** -0.5
 
