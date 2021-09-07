@@ -1,6 +1,12 @@
 import torch
 import timm
 
-m = timm.create_model('divervit_base_patch16_224', pretrained=False)
-m.cuda()
-m(torch.rand([4, 3, 224, 224]).cuda())
+input1 = torch.randn(128)
+input2 = torch.randn(128)
+cos = nn.CosineSimilarity(dim=0, eps=1e-6)
+output = cos(input1, input2)
+print(output)
+
+# m = timm.create_model('divervit_base_patch16_224', pretrained=False)
+# m.cuda()
+# m(torch.rand([4, 3, 224, 224]).cuda())
