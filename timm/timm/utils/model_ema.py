@@ -71,12 +71,12 @@ class ModelEma:
         with torch.no_grad():
             msd = model.state_dict()
             for k, ema_v in self.ema.state_dict().items():
-                print(k, ema_v)
                 if needs_module:
                     k = 'module.' + k
                 model_v = msd[k].detach()
                 if self.device:
                     model_v = model_v.to(device=self.device)
+                # Chilung: for the case of attn_map, we need to resize it to fit the batch size
                 if ema_v.shape[0] == model_v.shape[0]:
                     ema_v.copy_(ema_v * self.decay + (1. - self.decay) * model_v)
 
