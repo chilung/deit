@@ -1,9 +1,9 @@
 import torch
 import timm
 
-input1 = torch.randn(128)
-input2 = torch.randn(128)
-cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+input1 = torch.randn(5, 128)
+input2 = torch.randn(5, 128)
+cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
 output = cos(input1, input2)
 print(output)
 
