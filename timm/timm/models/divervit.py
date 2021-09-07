@@ -329,7 +329,8 @@ class DiverVisionTransformer(nn.Module):
             x = blk(x)
 
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
-        attn_similarity = self.cal_attn_similaity(layer_mask=self.layer_mask, cal_type=self.cal_type)
+        # attn_similarity = self.cal_attn_similaity(layer_mask=self.layer_mask, cal_type=self.cal_type)
+        attn_similarity = 0
         
         x = self.norm(x)
         return x[:, 0]
