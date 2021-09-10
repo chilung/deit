@@ -95,8 +95,8 @@ class DiverAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.register_buffer('attn_map', torch.zeros([0]), persistent=True)
-        print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
+        self.register_buffer('attn_map', torch.zeros([0]), persistent=False)
+        # print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         
         # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
         self.scale = qk_scale or head_dim ** -0.5
@@ -114,12 +114,8 @@ class DiverAttention(nn.Module):
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)        
         attn = self.attn_drop(attn)
-        #print('2 attn in {}'.format('CUDA' if attn.is_cuda else 'CPU'))
 
-        if self.attn_map.shape[0] != B:
-            self.attn_map.resize_(B, self.num_heads, N, C // self.num_heads).cuda()
-        # print('3 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
-        self.attn_map = attn
+        self.attn_map = attn[0].flatten(-2)
         
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
@@ -281,20 +277,18 @@ class DiverVisionTransformer(nn.Module):
         else:
             return
            
-    def cal_attn_similaity(self, layer_mask, cal_type='full conn'):
+    def cal_attn_similaity_old(self, layer_mask, cal_type='full conn'):
         # print('layer mask: {}, attn index: {}, cal_type: {}'.format(len(layer_mask), attn_list['index'], cal_type))
         # print('shape of attn list: {}'.format(attn_list.shape))
-        attn_map_name = [name for name, _ in self.named_buffers()]
-        print(attn_map_name)
         attn_map_buf = [buf for _, buf in self.named_buffers()]
 
         layer_depth = len(attn_map_buf)
-        B, H, _, _ = attn_map_buf[0].shape
+        H, _ = attn_map_buf[0].shape
         
         assert len(layer_mask) == layer_depth 
         assert cal_type in ['full conn', 'adjacent']
 
-        print('attn_map_buf in {}'.format('CUDA' if attn_map_buf[0].is_cuda else 'CPU'))
+        # print('attn_map_buf in {}'.format('CUDA' if attn_map_buf[0].is_cuda else 'CPU'))
         
         cal_list = [[i, j] for i in range(layer_depth-1) if layer_mask[i]==1
                     for j in range(i+1, layer_depth) if layer_mask[j]==1]
@@ -304,19 +298,42 @@ class DiverVisionTransformer(nn.Module):
         # print(cal_list)
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-        # cos_sim = torch.tensor([[[[cos(attn_map_buf[layer_i][batch_idx][head_i].flatten(), attn_map_buf[layer_j][batch_idx][head_j].flatten())
-        #                      for head_j in range(H)]
-        #                      for head_i in range(H)]
-        #                      for batch_idx in range(B)]
-        #                      for layer_i, layer_j in cal_list]).cuda()
-        cos_sim = torch.tensor([cos(attn_map_buf[layer_i].flatten(-2), attn_map_buf[layer_j].flatten(-2))
-                             for layer_i, layer_j in cal_list]).cuda()
-        # print(cos_sim)
+        cos_sim = torch.tensor(
+            torch.stack(tuple([cos(attn_map_buf[layer_i][..., None, :, :], attn_map_buf[layer_j][..., :, None, :])
+                             for layer_i, layer_j in cal_list]))
+            ).cuda()
+        
         cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
-        # print(cos_sim, cos_sim_max_indices)
-        print('cos_sim in {}'.format('CUDA' if cos_sim.is_cuda else 'CPU'))
         cos_sim = torch.mean(cos_sim)
-        print('cos_sim mean: {}'.format(cos_sim))
+
+        return cos_sim
+    
+    def cal_attn_similaity(self, layer_mask, cal_type='full conn'):
+        # print('layer mask: {}, attn index: {}, cal_type: {}'.format(len(layer_mask), attn_list['index'], cal_type))
+        # print('shape of attn list: {}'.format(attn_list.shape))
+        attn_map_buf = torch.tensor(
+            torch.stack(tuple([buf for _, buf in self.named_buffers()]))).cuda()
+
+        layer_depth = len(attn_map_buf)
+        H, _ = attn_map_buf[0].shape
+        
+        assert len(layer_mask) == layer_depth 
+        assert cal_type in ['full conn', 'adjacent']
+
+        # print('attn_map_buf in {}'.format('CUDA' if attn_map_buf[0].is_cuda else 'CPU'))
+        
+        cal_list = [[i, j] for i in range(layer_depth-1) if layer_mask[i]==1
+                    for j in range(i+1, layer_depth) if layer_mask[j]==1]
+        if cal_type == 'adjacent':
+            cal_list = [self.single_out(i, j) for i, j in cal_list]
+            cal_list = [item for item in cal_list if item!=None]
+        # print(cal_list)
+        
+        cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+        cos_sim = cos(attn_map_buf[..., None, :, :], attn_map_buf[..., :, None, :])        
+        cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
+        cos_sim = torch.mean(cos_sim)
+
         return cos_sim
     
     def forward_features(self, x):
