@@ -116,7 +116,7 @@ class DiverAttention(nn.Module):
         attn = self.attn_drop(attn)
         
         x = (attn @ v)
-        self.attn_map = x.flatten(-2)
+        self.attn_map = x[0].flatten(-2)
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
