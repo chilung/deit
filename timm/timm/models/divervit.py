@@ -213,14 +213,8 @@ class DiverVisionTransformer(nn.Module):
     """
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm,
-                 layer_mask=[], cal_type='full conn'):
+                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm):
         super().__init__()
-
-        # old_i for calculate similarity only
-        self.old_i = -1
-        self.layer_mask = layer_mask
-        self.cal_type = cal_type
 
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
@@ -284,33 +278,12 @@ class DiverVisionTransformer(nn.Module):
         else:
             return
   
-    def cal_attn_similaity(self, layer_mask, cal_type='full conn'):
-        # print('layer mask: {}, attn index: {}, cal_type: {}'.format(len(layer_mask), attn_list['index'], cal_type))
-        # print('shape of attn list: {}'.format(attn_list.shape))
+    def cal_attn_similaity(self):
         attn_map_buf = torch.tensor(
             torch.stack(tuple([buf for _, buf in self.named_buffers()]))).cuda()
-
-        layer_depth = len(attn_map_buf)
-        
-        assert len(layer_mask) == layer_depth 
-        assert cal_type in ['full conn', 'adjacent']
-
-        # print('attn_map_buf in {}'.format('CUDA' if attn_map_buf[0].is_cuda else 'CPU'))
-        
-        cal_list = [[i, j] for i in range(layer_depth-1) if layer_mask[i]==1
-                    for j in range(i+1, layer_depth) if layer_mask[j]==1]
-        if cal_type == 'adjacent':
-            cal_list = [self.single_out(i, j) for i, j in cal_list]
-            cal_list = [item for item in cal_list if item!=None]
-        # print(cal_list)
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
         cos_sim = cos(attn_map_buf[..., None, :, :], attn_map_buf[..., :, None, :])        
-        #print('======================check 1=================')
-        #print(cos_sim)
-        #cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
-        #print('======================check 2=================')
-        #print(cos_sim)
         cos_sim = torch.mean(cos_sim)
 
         return cos_sim
@@ -329,7 +302,7 @@ class DiverVisionTransformer(nn.Module):
             x = blk(x)
 
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
-        attn_similarity = self.cal_attn_similaity(layer_mask=self.layer_mask, cal_type=self.cal_type)
+        attn_similarity = self.cal_attn_similaity()
         # attn_similarity = 0
         
         x = self.norm(x)
@@ -356,7 +329,7 @@ def divervit_base_patch16_224(pretrained=False, **kwargs):
     print('divervit_base_patch16_224')
     model = DiverVisionTransformer(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     for buf in model.named_buffers():
         print(buf)
     model.default_cfg = default_cfgs['divervit_base_patch16_224']
@@ -367,13 +340,13 @@ def divervit_base_patch16_224(pretrained=False, **kwargs):
 
 @register_model
 def divervit_d18_patch16_224(pretrained=False, **kwargs):
-    print('divervit_base_patch16_224')
+    print('divervit_d18_patch16_224')
     model = DiverVisionTransformer(
         patch_size=16, embed_dim=768, depth=18, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     for buf in model.named_buffers():
         print(buf)
-    model.default_cfg = default_cfgs['divervit_base_patch16_224']
+    model.default_cfg = default_cfgs['divervit_d18_patch16_224']
     if pretrained:
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
@@ -381,13 +354,13 @@ def divervit_d18_patch16_224(pretrained=False, **kwargs):
 
 @register_model
 def divervit_d24_patch16_224(pretrained=False, **kwargs):
-    print('divervit_base_patch16_224')
+    print('divervit_d24_patch16_224')
     model = DiverVisionTransformer(
         patch_size=16, embed_dim=768, depth=24, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     for buf in model.named_buffers():
         print(buf)
-    model.default_cfg = default_cfgs['divervit_base_patch16_224']
+    model.default_cfg = default_cfgs['divervit_d24_patch16_224']
     if pretrained:
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
