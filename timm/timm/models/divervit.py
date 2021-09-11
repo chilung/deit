@@ -68,7 +68,14 @@ default_cfgs = {
         url='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth',
         mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
     ),
+    'divervit_d18_patch16_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
+    'divervit_d24_patch16_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
 }
+
 
 
 class Mlp(nn.Module):
@@ -299,7 +306,11 @@ class DiverVisionTransformer(nn.Module):
         
         cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
         cos_sim = cos(attn_map_buf[..., None, :, :], attn_map_buf[..., :, None, :])        
-        cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
+        #print('======================check 1=================')
+        #print(cos_sim)
+        #cos_sim, cos_sim_max_indices = torch.max(cos_sim, dim=-2)
+        #print('======================check 2=================')
+        #print(cos_sim)
         cos_sim = torch.mean(cos_sim)
 
         return cos_sim
@@ -342,8 +353,7 @@ def _conv_filter(state_dict, patch_size=16):
 
 @register_model
 def divervit_base_patch16_224(pretrained=False, **kwargs):
-    print('===============================CHILUNG divervit_base_patch16_224===============================')
-    print('===============================pretrained: {}==============================='.format(pretrained))
+    print('divervit_base_patch16_224')
     model = DiverVisionTransformer(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
@@ -351,7 +361,35 @@ def divervit_base_patch16_224(pretrained=False, **kwargs):
         print(buf)
     model.default_cfg = default_cfgs['divervit_base_patch16_224']
     if pretrained:
-        print('===============================CHILUNG load_pretrained===============================')
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
     return model
+
+@register_model
+def divervit_d18_patch16_224(pretrained=False, **kwargs):
+    print('divervit_base_patch16_224')
+    model = DiverVisionTransformer(
+        patch_size=16, embed_dim=768, depth=18, num_heads=12, mlp_ratio=4, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_base_patch16_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_d24_patch16_224(pretrained=False, **kwargs):
+    print('divervit_base_patch16_224')
+    model = DiverVisionTransformer(
+        patch_size=16, embed_dim=768, depth=24, num_heads=12, mlp_ratio=4, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), layer_mask=mask_12_f_step4, cal_type='adjacent', **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_base_patch16_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
