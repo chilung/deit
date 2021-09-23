@@ -29,28 +29,11 @@ from .helpers import load_pretrained
 from .layers import DropPath, to_2tuple, trunc_normal_
 from .resnet import resnet26d, resnet50d
 from .registry import register_model
+from .utils import cross_layer_similaity
 
 stat = {}
 attn_list = None
 attn_similarity = 0.0
-
-mask_12_step1 = [1, 1, 1, 1,
-                 1, 1, 1, 1,
-                 1, 1, 1, 1,]
-mask_12_step4 = [1, 0, 0, 0,
-                 1, 0, 0, 0,
-                 1, 0, 0, 0,]
-mask_12_f_step4 = [0, 0, 0, 0,
-                 0, 0, 0, 0,
-                 1, 1, 1, 1,]
-mask_16_step1 = [1, 1, 1, 1,
-                 1, 1, 1, 1,
-                 1, 1, 1, 1,
-                 1, 1, 1, 1,]
-mask_16_step4 = [1, 0, 0, 0,
-                 1, 0, 0, 0,
-                 1, 0, 0, 0,
-                 1, 0, 0, 0,]
 
 def _cfg(url='', **kwargs):
     return {
@@ -102,7 +85,8 @@ class DiverAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.register_buffer('attn_map', torch.zeros([0]), persistent=False)
+        self.register_buffer('_attention_map', torch.zeros([0]), persistent=False)
+        self.register_buffer('_feature_map', torch.zeros([0]), persistent=False)
         # print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         
         # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
@@ -120,10 +104,13 @@ class DiverAttention(nn.Module):
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)        
+        self._attention_map = attn[0]
+        print(self._attention_map.shape)
         attn = self.attn_drop(attn)
         
         x = (attn @ v)
-        self.attn_map = x[0].flatten(-2)
+        self._feature_map = x[0]
+        print(self._feature_map.shape)
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -302,7 +289,9 @@ class DiverVisionTransformer(nn.Module):
             x = blk(x)
 
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
-        attn_similarity = self.cal_attn_similaity()
+        # attn_similarity = self.cal_attn_similaity()
+        attn_similarity = cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.4)
+        
         # attn_similarity = 0
         
         x = self.norm(x)
