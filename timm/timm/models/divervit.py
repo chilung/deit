@@ -56,6 +56,7 @@ default_cfgs = {
     ),
     'divervit_d24_patch16_224': _cfg(
         mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
     'divervit_d32_patch16_224': _cfg(
         mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
     ),
