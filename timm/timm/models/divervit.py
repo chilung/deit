@@ -362,7 +362,7 @@ def divervit_d24_patch16_224(pretrained=False, **kwargs):
 def divervit_d32_patch16_224(pretrained=False, **kwargs):
     print('divervit_d32_patch16_224')
     model = DiverVisionTransformer(
-        patch_size=16, embed_dim=768, depth=32, num_heads=18, mlp_ratio=4, qkv_bias=True,
+        patch_size=16, embed_dim=768, depth=32, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     for buf in model.named_buffers():
         print(buf)
