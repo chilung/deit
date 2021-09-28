@@ -30,6 +30,8 @@ from .layers import DropPath, to_2tuple, trunc_normal_
 from .resnet import resnet26d, resnet50d
 from .registry import register_model
 from .utils import cross_layer_similaity
+from pprint import pprint
+
 
 stat = {}
 attn_list = None
@@ -104,6 +106,9 @@ class DiverAttention(nn.Module):
         self.cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
 
     def forward(self, x):
+
+        # pprint(vars(self))
+        
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
@@ -118,7 +123,9 @@ class DiverAttention(nn.Module):
         x = (attn @ v)
         self._feature_map = x[0]
         cos_sim = self.cos(self._feature_map[..., None, :, :], self._feature_map[..., :, None, :])
+        print('Gradient function for cos_sim =', cos_sim.grad_fn)
         self._feature_similarity = torch.mean(cos_sim)
+        print('Gradient function for _feature_similarity =', self._feature_similarity.grad_fn)
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)

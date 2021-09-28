@@ -16,10 +16,13 @@ def cross_layer_similaity(model, map_name='attention', inter_layer=False, simila
     assert map_name in ['attention', 'feature']
     
     map_name = '_attention_similarity' if map_name=='attention' else '_feature_similarity'
-    map_buf = torch.tensor(
-        torch.stack(tuple([buf for name, buf in model.named_buffers() if map_name in name]))).cuda()
-        
-    return torch.mean(map_buf)
+    map_buf = [buf for name, buf in model.named_buffers() if map_name in name]
+    cos_sim = 0
+    for buf in map_buf:
+        cos_sim += buf
+    
+    print('Gradient function for final cos_sim =', cos_sim.grad_fn)
+    return cos_sim
 
 '''
 map_name:
