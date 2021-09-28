@@ -90,6 +90,8 @@ class DiverAttention(nn.Module):
         head_dim = dim // num_heads
         self.register_buffer('_attention_map', torch.zeros([0]), persistent=False)
         self.register_buffer('_feature_map', torch.zeros([0]), persistent=False)
+        self.register_buffer('_attention_similarity', torch.zeros([0]), persistent=False)
+        self.register_buffer('_feature_similarity', torch.zeros([0]), persistent=False)
         # print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         
         # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
@@ -99,6 +101,7 @@ class DiverAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+        self.cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
 
     def forward(self, x):
         B, N, C = x.shape
@@ -108,12 +111,14 @@ class DiverAttention(nn.Module):
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)        
         self._attention_map = attn[0]
-        print(self._attention_map.shape)
+        cos_sim = self.cos(self._attention_map[..., None, :, :], self._attention_map[..., :, None, :])
+        self._attention_similarity = torch.mean(cos_sim)
         attn = self.attn_drop(attn)
         
         x = (attn @ v)
         self._feature_map = x[0]
-        print(self._feature_map.shape)
+        cos_sim = self.cos(self._feature_map[..., None, :, :], self._feature_map[..., :, None, :])
+        self._feature_similarity = torch.mean(cos_sim)
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -293,7 +298,8 @@ class DiverVisionTransformer(nn.Module):
 
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
         # attn_similarity = self.cal_attn_similaity()
-        attn_similarity = cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.4)
+        # print('cross_layer_similaity')
+        attn_similarity = cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.9)
         
         # attn_similarity = 0
         
