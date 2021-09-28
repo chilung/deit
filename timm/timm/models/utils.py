@@ -21,7 +21,7 @@ def cross_layer_similaity(model, map_name='attention', inter_layer=False, simila
     for buf in map_buf:
         cos_sim += buf
     
-    print('Gradient function for final cos_sim =', cos_sim.grad_fn)
+    # print('Gradient function for final cos_sim =', cos_sim.grad_fn)
     return cos_sim
 
 '''
