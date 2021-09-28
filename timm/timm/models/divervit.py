@@ -123,9 +123,9 @@ class DiverAttention(nn.Module):
         x = (attn @ v)
         self._feature_map = x[0]
         cos_sim = self.cos(self._feature_map[..., None, :, :], self._feature_map[..., :, None, :])
-        print('Gradient function for cos_sim =', cos_sim.grad_fn)
+        # print('Gradient function for cos_sim =', cos_sim.grad_fn)
         self._feature_similarity = torch.mean(cos_sim)
-        print('Gradient function for _feature_similarity =', self._feature_similarity.grad_fn)
+        # print('Gradient function for _feature_similarity =', self._feature_similarity.grad_fn)
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
