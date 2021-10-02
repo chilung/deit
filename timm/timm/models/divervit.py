@@ -62,6 +62,18 @@ default_cfgs = {
     'divervit_d32_patch16_224': _cfg(
         mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
     ),
+    'divervit_d12_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
+    'divervit_d18_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
+    'divervit_d24_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
+    'divervit_d32_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    ),
 }
 
 
@@ -385,3 +397,58 @@ def divervit_d32_patch16_224(pretrained=False, **kwargs):
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
     return model
 
+@register_model
+def divervit_d12_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_d12_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_d12_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_d18_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_d18_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_d18_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_d24_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_d24_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_d24_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_d32_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_d32_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_d32_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
