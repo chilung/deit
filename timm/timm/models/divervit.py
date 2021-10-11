@@ -133,7 +133,7 @@ class DiverAttention(nn.Module):
 
     def forward(self, x):
 
-        print('divervit: {}'.format(self.divervit))
+        # print('divervit: {}'.format(self.divervit))
         
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
