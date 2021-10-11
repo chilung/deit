@@ -134,9 +134,6 @@ def get_args_parser():
     parser.add_argument('--distillation-alpha', default=0.5, type=float, help="")
     parser.add_argument('--distillation-tau', default=1.0, type=float, help="")
 
-    # Diversify Vit parameters
-    parser.add_argument('--divervit', action='store_true')
-
     # * Finetuning params
     parser.add_argument('--finetune', default='', help='finetune from checkpoint')
 
@@ -177,7 +174,6 @@ def main(args):
     utils.init_distributed_mode(args)
 
     print(args)
-    print('================= Diversify Vit: {} ================='.format(args.divervit))
     
     if args.distillation_type != 'none' and args.finetune and not args.eval:
         raise NotImplementedError("Finetuning with distillation not yet supported")

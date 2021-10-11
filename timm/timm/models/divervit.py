@@ -38,6 +38,7 @@ attn_list = None
 attn_similarity = 0.0
 
 def _cfg(url='', **kwargs):
+    print('********************* _cfg divervit: {}'.format(kwargs))
     return {
         'url': url,
         'num_classes': 1000, 'input_size': (3, 224, 224), 'pool_size': None,
@@ -62,17 +63,29 @@ default_cfgs = {
     'divervit_d32_patch16_224': _cfg(
         mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
     ),
-    'divervit_d12_patch32_dim192_h6_r3_224': _cfg(
-        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    'divervit_enable_d12_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=True,
     ),
-    'divervit_d18_patch32_dim192_h6_r3_224': _cfg(
-        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    'divervit_enable_d18_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=True,
     ),
-    'divervit_d24_patch32_dim192_h6_r3_224': _cfg(
-        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    'divervit_enable_d24_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=True,
     ),
-    'divervit_d32_patch32_dim192_h6_r3_224': _cfg(
-        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5),
+    'divervit_enable_d32_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=True,
+    ),
+    'divervit_disable_d12_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=False,
+    ),
+    'divervit_disable_d18_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=False,
+    ),
+    'divervit_disable_d24_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=False,
+    ),
+    'divervit_disable_d32_patch32_dim192_h6_r3_224': _cfg(
+        mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), divervit=False,
     ),
 }
 
@@ -98,15 +111,10 @@ class Mlp(nn.Module):
 
 
 class DiverAttention(nn.Module):
-    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
+    def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., divervit=True):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.register_buffer('_attention_map', torch.zeros([0]), persistent=False)
-        self.register_buffer('_feature_map', torch.zeros([0]), persistent=False)
-        self.register_buffer('_attention_similarity', torch.zeros([0]), persistent=False)
-        self.register_buffer('_feature_similarity', torch.zeros([0]), persistent=False)
-        # print('1 attn_map in {}'.format('CUDA' if self.attn_map.is_cuda else 'CPU'))
         
         # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
         self.scale = qk_scale or head_dim ** -0.5
@@ -116,10 +124,16 @@ class DiverAttention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
         self.cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
+        self.divervit = divervit
+        if self.divervit:
+            self.register_buffer('_attention_map', torch.zeros([0]), persistent=False)
+            self.register_buffer('_feature_map', torch.zeros([0]), persistent=False)
+            self.register_buffer('_attention_similarity', torch.zeros([0]), persistent=False)
+            self.register_buffer('_feature_similarity', torch.zeros([0]), persistent=False)
 
     def forward(self, x):
 
-        # pprint(vars(self))
+        print('divervit: {}'.format(self.divervit))
         
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
@@ -127,17 +141,19 @@ class DiverAttention(nn.Module):
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)        
-        self._attention_map = attn[0]
-        cos_sim = self.cos(self._attention_map[..., None, :, :], self._attention_map[..., :, None, :])
-        self._attention_similarity = torch.mean(cos_sim)
+        if self.divervit:
+            self._attention_map = attn[0]
+            cos_sim = self.cos(self._attention_map[..., None, :, :], self._attention_map[..., :, None, :])
+            self._attention_similarity = torch.mean(cos_sim)
         attn = self.attn_drop(attn)
         
         x = (attn @ v)
-        self._feature_map = x[0]
-        cos_sim = self.cos(self._feature_map[..., None, :, :], self._feature_map[..., :, None, :])
-        # print('Gradient function for cos_sim =', cos_sim.grad_fn)
-        self._feature_similarity = torch.mean(cos_sim)
-        # print('Gradient function for _feature_similarity =', self._feature_similarity.grad_fn)
+        if self.divervit:
+            self._feature_map = x[0]
+            cos_sim = self.cos(self._feature_map[..., None, :, :], self._feature_map[..., :, None, :])
+            # print('Gradient function for cos_sim =', cos_sim.grad_fn)
+            self._feature_similarity = torch.mean(cos_sim)
+            # print('Gradient function for _feature_similarity =', self._feature_similarity.grad_fn)
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -147,11 +163,11 @@ class DiverAttention(nn.Module):
 class Block(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, divervit=True):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = DiverAttention(
-            dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
+            dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, divervit=divervit)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
@@ -227,12 +243,16 @@ class DiverVisionTransformer(nn.Module):
     """
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm):
+                 drop_path_rate=0., hybrid_backbone=None, norm_layer=nn.LayerNorm, divervit=True, **kwargs):
         super().__init__()
 
+        print("++++++++++++++++++++++++++++++++ divervit {} +++++++++++++++++++++++++++".format(divervit))
+    
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
 
+        self.divervit = divervit
+        
         if hybrid_backbone is not None:
             self.patch_embed = HybridEmbed(
                 hybrid_backbone, img_size=img_size, in_chans=in_chans, embed_dim=embed_dim)
@@ -249,7 +269,7 @@ class DiverVisionTransformer(nn.Module):
         self.blocks = nn.ModuleList([
             Block(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer)
+                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, divervit=divervit)
             for i in range(depth)])
         self.norm = norm_layer(embed_dim)
 
@@ -318,9 +338,10 @@ class DiverVisionTransformer(nn.Module):
         # print('depth of layer: {}, attention map: {}'.format(attn_list['index'], attn_list))
         # attn_similarity = self.cal_attn_similaity()
         # print('cross_layer_similaity')
-        attn_similarity = cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.9)
-        
-        # attn_similarity = 0
+        if self.divervit:
+            attn_similarity = cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.9)
+        else:
+            attn_similarity = 0
         
         x = self.norm(x)
         return x[:, 0]
@@ -398,56 +419,112 @@ def divervit_d32_patch16_224(pretrained=False, **kwargs):
     return model
 
 @register_model
-def divervit_d12_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
-    print('divervit_d12_patch32_dim192_h6_r3_224')
+def divervit_enable_d12_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_enable_d12_patch32_dim192_h6_r3_224')
     model = DiverVisionTransformer(
         patch_size=32, embed_dim=192, depth=12, num_heads=6, mlp_ratio=3, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=True, **kwargs)
     for buf in model.named_buffers():
         print(buf)
-    model.default_cfg = default_cfgs['divervit_d12_patch32_dim192_h6_r3_224']
+    model.default_cfg = default_cfgs['divervit_enable_d12_patch32_dim192_h6_r3_224']
     if pretrained:
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
     return model
 
 @register_model
-def divervit_d18_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
-    print('divervit_d18_patch32_dim192_h6_r3_224')
+def divervit_disable_d12_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_disable_d12_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=12, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=False, **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_disable_d12_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_enable_d18_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_enable_d18_patch32_dim192_h6_r3_224')
     model = DiverVisionTransformer(
         patch_size=32, embed_dim=192, depth=18, num_heads=6, mlp_ratio=3, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=True, **kwargs)
     for buf in model.named_buffers():
         print(buf)
-    model.default_cfg = default_cfgs['divervit_d18_patch32_dim192_h6_r3_224']
+    model.default_cfg = default_cfgs['divervit_enable_d18_patch32_dim192_h6_r3_224']
     if pretrained:
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
     return model
 
 @register_model
-def divervit_d24_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
-    print('divervit_d24_patch32_dim192_h6_r3_224')
+def divervit_disable_d18_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_disable_d18_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=18, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=False, **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_disable_d18_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_enable_d24_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_enable_d24_patch32_dim192_h6_r3_224')
     model = DiverVisionTransformer(
         patch_size=32, embed_dim=192, depth=24, num_heads=6, mlp_ratio=3, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=True, **kwargs)
     for buf in model.named_buffers():
         print(buf)
-    model.default_cfg = default_cfgs['divervit_d24_patch32_dim192_h6_r3_224']
+    model.default_cfg = default_cfgs['divervit_enable_d24_patch32_dim192_h6_r3_224']
     if pretrained:
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
     return model
 
 @register_model
-def divervit_d32_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
-    print('divervit_d32_patch32_dim192_h6_r3_224')
+def divervit_disable_d24_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_disable_d24_patch32_dim192_h6_r3_224')
     model = DiverVisionTransformer(
-        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        patch_size=32, embed_dim=192, depth=24, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=False, **kwargs)
     for buf in model.named_buffers():
         print(buf)
-    model.default_cfg = default_cfgs['divervit_d32_patch32_dim192_h6_r3_224']
+    model.default_cfg = default_cfgs['divervit_disable_d24_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_enable_d32_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_enable_d32_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=True, **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_enable_d32_patch32_dim192_h6_r3_224']
+    if pretrained:
+        load_pretrained(
+            model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
+    return model
+
+@register_model
+def divervit_disable_d32_patch32_dim192_h6_r3_224(pretrained=False, **kwargs):
+    print('divervit_disable_d32_patch32_dim192_h6_r3_224')
+    model = DiverVisionTransformer(
+        patch_size=32, embed_dim=192, depth=32, num_heads=6, mlp_ratio=3, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), divervit=False, **kwargs)
+    for buf in model.named_buffers():
+        print(buf)
+    model.default_cfg = default_cfgs['divervit_disable_d32_patch32_dim192_h6_r3_224']
     if pretrained:
         load_pretrained(
             model, num_classes=model.num_classes, in_chans=kwargs.get('in_chans', 3), filter_fn=_conv_filter)
