@@ -17,6 +17,21 @@ import utils
 
 import timm.models.divervit
 
+def getBack_fn(level, grad_fn):
+    print('level {}, {}, next: {}'.format(level, grad_fn, grad_fn.next_functions))
+    for idx, n in enumerate(grad_fn.next_functions):
+        print('level {}-{}, {}'.format(level, idx, n))
+        if n[0] is not None:
+            print('    node: {}'.format(n[0]))
+            if hasattr(n[0], 'variable'):
+              tensor = getattr(n[0], 'variable')
+              if tensor.grad:
+                print('    tensor with grad found: '.format(tensor.shape))
+                print('    tensor is leaf: {}'.format(tensor.is_leaf))
+                print('    gradient: {}'.format(tensor.grad.shape))
+                print()
+            getBack_fn(level+idx, n[0])
+
 def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
