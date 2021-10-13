@@ -339,7 +339,7 @@ class DiverVisionTransformer(nn.Module):
         # attn_similarity = self.cal_attn_similaity()
         # print('cross_layer_similaity')
         if self.divervit:
-            attn_similarity = cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.9)
+            attn_similarity = -torch.log(cross_layer_similaity(self, map_name='attention', inter_layer=False, similarity_type='token', threshold=0.9) / self.depth)
         else:
             attn_similarity = 0
         
