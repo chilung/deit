@@ -24,12 +24,12 @@ def getBack_fn(level, grad_fn):
         if n[0] is not None:
             print('    node: {}'.format(n[0]))
             if hasattr(n[0], 'variable'):
-              tensor = getattr(n[0], 'variable')
-              if tensor.grad:
-                print('    tensor with grad found: '.format(tensor.shape))
-                print('    tensor is leaf: {}'.format(tensor.is_leaf))
-                print('    gradient: {}'.format(tensor.grad.shape))
-                print()
+                tensor = getattr(n[0], 'variable')
+                if tensor.grad:
+                    print('    tensor with grad found: '.format(tensor.shape))
+                    print('    tensor is leaf: {}'.format(tensor.is_leaf))
+                    print('    gradient: {}'.format(tensor.grad.shape))
+                    print()
             getBack_fn(level+idx, n[0])
 
 def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
@@ -57,7 +57,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         print('original loss: {}, similarity: {}'.format(loss, timm.models.divervit.attn_similarity))
         print('Gradient function for loss_value =', loss.grad_fn)
         # print('Gradient function for timm.models.divervit.attn_similarity =', timm.models.divervit.attn_similarity.grad_fn)
-        loss_value = loss.item() + 10 * timm.models.divervit.attn_similarity
+        print('loss: {}'.format(loss))
+        print('loss item: {}'.format(loss.item()))
+        
+        loss = loss + timm.models.divervit.attn_similarity
+        loss_value = loss.item()
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
