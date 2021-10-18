@@ -60,7 +60,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         print('loss: {}'.format(loss))
         print('loss item: {}'.format(loss.item()))
         
-        loss = loss + 0.05 * timm.models.divervit.attn_similarity
+        loss = loss + 0.2 * timm.models.divervit.attn_similarity
         loss_value = loss.item()
 
         if not math.isfinite(loss_value):
