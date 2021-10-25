@@ -143,14 +143,14 @@ class DiverAttention(nn.Module):
         attn = attn.softmax(dim=-1)        
         if self.divervit:
             self._attention_map = attn[0]
-            cos_sim = self.cos(self._attention_map[..., None, :, :], self._attention_map[..., :, None, :])
+            cos_sim = self.cos(self._attention_map.flatten(-1)[..., None, :, :], self._attention_map.flatten(-1)[..., :, None, :])
             self._attention_similarity = torch.mean(cos_sim)
         attn = self.attn_drop(attn)
         
         x = (attn @ v)
         if self.divervit:
             self._feature_map = x[0]
-            cos_sim = self.cos(self._feature_map[..., None, :, :], self._feature_map[..., :, None, :])
+            cos_sim = self.cos(self._feature_map.flatten(-1)[..., None, :, :], self._feature_map.flatten(-1)[..., :, None, :])
             # print('Gradient function for cos_sim =', cos_sim.grad_fn)
             self._feature_similarity = torch.mean(cos_sim)
             # print('Gradient function for _feature_similarity =', self._feature_similarity.grad_fn)
