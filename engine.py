@@ -36,7 +36,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
-                    set_training_mode=True):
+                    set_training_mode=True, divervit_alpha=0.01):
     model.train(set_training_mode)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -55,12 +55,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
             loss = criterion(samples, outputs, targets)
 
         print('original loss: {}, similarity: {}'.format(loss, timm.models.divervit.attn_similarity))
-        print('Gradient function for loss_value =', loss.grad_fn)
+        # print('Gradient function for loss_value =', loss.grad_fn)
         # print('Gradient function for timm.models.divervit.attn_similarity =', timm.models.divervit.attn_similarity.grad_fn)
-        print('loss: {}'.format(loss))
-        print('loss item: {}'.format(loss.item()))
         
-        loss = loss + 0.01 * timm.models.divervit.attn_similarity
+        loss = loss + divervit_alpha * timm.models.divervit.attn_similarity
+        print('combined loss: {}, divervit_alpha: {}, similarity: {}'.format(loss, divervit_alpha, timm.models.divervit.attn_similarity))
         loss_value = loss.item()
 
         if not math.isfinite(loss_value):

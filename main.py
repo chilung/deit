@@ -134,6 +134,9 @@ def get_args_parser():
     parser.add_argument('--distillation-alpha', default=0.5, type=float, help="")
     parser.add_argument('--distillation-tau', default=1.0, type=float, help="")
 
+    # divervit parameters
+    parser.add_argument('--divervit_alpha', default=0.01, type=float, help="set the alpha coefficient of divervit loss")
+
     # * Finetuning params
     parser.add_argument('--finetune', default='', help='finetune from checkpoint')
 
@@ -378,7 +381,8 @@ def main(args):
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
-            set_training_mode=args.finetune == ''  # keep in eval mode during finetuning
+            set_training_mode=args.finetune == ''  # keep in eval mode during finetuning,
+            args.divervit_alpha
         )
 
         lr_scheduler.step(epoch)
