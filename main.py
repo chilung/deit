@@ -381,8 +381,8 @@ def main(args):
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
-            set_training_mode=args.finetune == ''  # keep in eval mode during finetuning,
-            args.divervit_alpha
+            set_training_mode=args.finetune == '',  # keep in eval mode during finetuning
+            divervit_alpha=args.divervit_alpha
         )
 
         lr_scheduler.step(epoch)
