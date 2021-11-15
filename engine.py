@@ -58,7 +58,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         # print('Gradient function for loss_value =', loss.grad_fn)
         # print('Gradient function for timm.models.divervit.attn_similarity =', timm.models.divervit.attn_similarity.grad_fn)
         
-        loss = loss + divervit_alpha * timm.models.divervit.attn_similarity
+        if divervit_alpha != 0:
+            loss = (1-divervit_alpha)*loss + divervit_alpha*timm.models.divervit.attn_similarity
         print('combined loss: {}, divervit_alpha: {}, similarity: {}'.format(loss, divervit_alpha, timm.models.divervit.attn_similarity))
         loss_value = loss.item()
 
