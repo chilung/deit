@@ -38,7 +38,7 @@ attn_list = None
 attn_similarity = 0.0
 
 def _cfg(url='', **kwargs):
-    print('********************* _cfg divervit: {}'.format(kwargs))
+    # print('********************* _cfg divervit: {}'.format(kwargs))
     return {
         'url': url,
         'num_classes': 1000, 'input_size': (3, 224, 224), 'pool_size': None,

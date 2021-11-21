@@ -214,6 +214,8 @@ def save_on_master(*args, **kwargs):
 
 
 def init_distributed_mode(args):
+    # print(args)
+    
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ['WORLD_SIZE'])
@@ -226,6 +228,7 @@ def init_distributed_mode(args):
         args.distributed = False
         return
 
+    print('args.rank: {}, args.world_size: {}, args.gpu: {}'.format(args.rank, args.world_size, args.gpu))
     args.distributed = True
 
     torch.cuda.set_device(args.gpu)
@@ -236,3 +239,4 @@ def init_distributed_mode(args):
                                          world_size=args.world_size, rank=args.rank)
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
+    
